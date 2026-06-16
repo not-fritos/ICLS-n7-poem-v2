@@ -85,6 +85,9 @@ let poemData = null;
 let curStep = 15;
 let phase = 'load';
 let phaseStart = 0;
+let pressStart = 0;
+let paused = false;
+let hintVisible = true;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -132,6 +135,10 @@ function draw() {
   background(255);
   if (!poemData) return;
 
+  if (mouseIsPressed && millis() - pressStart > 300) {
+    paused = true;
+  }
+
   const dt = (millis() - phaseStart) / 1000;
 
   if (phase === 'wipe') {
@@ -139,7 +146,17 @@ function draw() {
     if (dt >= WIPE_SEC) phase = 'hold';
   } else if (phase === 'hold') {
     drawPoem(1);
-    if (dt >= TOTAL_SEC) advance();
+    if (!paused && dt >= TOTAL_SEC) advance();
+  }
+
+  if (hintVisible) {
+    const saved = textSize();
+    textAlign(CENTER, BOTTOM);
+    fill(150);
+    textSize(12);
+    text("tap to skip  \u00b7  hold to pause", width / 2, height - 16);
+    textSize(saved);
+    textAlign(LEFT, TOP);
   }
 }
 
@@ -147,6 +164,20 @@ function advance() {
   curStep = (curStep - 1 + 16) % 16;
   phase = 'wipe';
   phaseStart = millis();
+}
+
+function mousePressed() {
+  pressStart = millis();
+  return false;
+}
+
+function mouseReleased() {
+  if (millis() - pressStart < 300) {
+    advance();
+  } else {
+    paused = false;
+  }
+  return false;
 }
 
 function drawPoem(progress) {
