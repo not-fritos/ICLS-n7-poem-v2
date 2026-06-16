@@ -56,6 +56,19 @@ function processPoem(json) {
   return { nounWords, nonNounWords, changingIndices, maxLengths, totalColumns: totalCols };
 }
 
+function wrapText(str, maxW) {
+  const words = str.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? cur + ' ' + w : w;
+    if (textWidth(test) > maxW && cur) { lines.push(cur); cur = w; }
+    else { cur = test; }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
 // ============================================================
 // p5.js Animation
 // ============================================================
@@ -64,6 +77,9 @@ const WIPE_SEC = 1;
 const HOLD_SEC = 4;
 const TOTAL_SEC = WIPE_SEC + HOLD_SEC;
 const PAD = 20;
+const HEADER_PAD = 8;
+const TITLE = "we are not professionals, and maybe that\u2019s okay";
+const FOOTER = "an n+7 poem based on Ryan Lay\u2019s Personal Statement @UW-Madison 2027";
 
 let poemData = null;
 let curStep = 15;
@@ -95,13 +111,19 @@ function fitFontSize() {
     const cw = textWidth('M');
     const sp = textWidth(' ');
     const lh = textAscent() + textDescent() + 4;
+    const gap = 2 * lh;
+    const titleLines = wrapText(TITLE, mw);
+    const footerLines = wrapText(FOOTER, mw);
+    const headerH = titleLines.length * lh + HEADER_PAD + lh + gap;
+    const footerH = gap + footerLines.length * lh;
     let rows = 1, rw = 0;
     for (let c = 0; c < poemData.totalColumns; c++) {
       const colW = poemData.maxLengths[c] * cw;
       if (rw > 0 && rw + sp + colW > mw) { rows++; rw = 0; }
       rw += colW + (rw > 0 ? sp : 0);
     }
-    if (rows * lh <= height - 2 * PAD) return;
+    const totalH = headerH + rows * lh + footerH;
+    if (totalH <= height) return;
   }
   textSize(6);
 }
@@ -148,12 +170,29 @@ function drawPoem(progress) {
   if (curRow.length) rows.push(curRow);
 
   const lh = textAscent() + textDescent() + 4;
+  const gap = 2 * lh;
   const poemH = rows.length * lh;
-  const poemY = (height - poemH) / 2;
+  const titleLines = wrapText(TITLE, width - 2 * PAD);
+  const footerLines = wrapText(FOOTER, width - 2 * PAD);
+  const headerH = titleLines.length * lh + HEADER_PAD + lh + gap;
+  const footerH = gap + footerLines.length * lh;
+  const totalH = headerH + poemH + footerH;
+  const blockY = Math.max((height - totalH) / 2, 0);
+  const titleY = blockY;
+  const labelY = titleY + titleLines.length * lh + HEADER_PAD;
+  const poemY = labelY + lh + gap;
+  const footerY = poemY + poemH + gap;
   const thresholdY = poemY + progress * poemH;
 
-  textAlign(LEFT, TOP);
+  textAlign(CENTER, TOP);
   noStroke();
+  fill(0);
+  for (let i = 0; i < titleLines.length; i++) {
+    text(titleLines[i], width / 2, titleY + i * lh);
+  }
+  text("N+" + curStep + " of 15", width / 2, labelY);
+
+  textAlign(LEFT, TOP);
 
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r];
@@ -168,11 +207,13 @@ function drawPoem(progress) {
 
       if (changingIndices.has(col)) {
         if (rowBottom <= thresholdY) {
-          fill(173, 216, 230, 180);
-          rect(x, ry, cellW, lh);
-          fill(0);
           const word = nounWords[col][curStep];
-          text(word, x + (cellW - textWidth(word)) / 2, ry);
+          const hasPunct = stripPunctuation(word).after.length > 0;
+          const hw = cellW + (hasPunct ? cw : 0);
+          fill(173, 216, 230, 180);
+          rect(x, ry, hw, lh);
+          fill(0);
+          text(word, x + (hw - textWidth(word)) / 2, ry);
         }
       } else {
         fill(0);
@@ -181,5 +222,11 @@ function drawPoem(progress) {
 
       x += cellW + sp;
     }
+  }
+
+  textAlign(CENTER, TOP);
+  fill(150);
+  for (let i = 0; i < footerLines.length; i++) {
+    text(footerLines[i], width / 2, footerY + i * lh);
   }
 }
